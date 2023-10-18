@@ -1,13 +1,8 @@
-import re
-from dataclasses import dataclass
 from state import *
-
-@dataclass
-class Token:
-    ltype : str
-    val : str
-
-code = "a = (+2);"
+import re
+code = input("file?:")
+with open(code,"r") as f:
+    code = f.read()
 
 def br(i, code, oc):
     start = i = i + 1
@@ -46,11 +41,14 @@ def exop(i,code):
             code[i].skipped = True
             return code
         elif(i == 0):
-            return code[:i] + [Oper(lambda a: code[i].f(a, code[i+1]), code[i].pref)] + code[i+2:]
+            return [Oper(lambda a: code[0].f(a, code[1]), code[0].pref)] + code[2:]
+        elif(i == len(code) - 1):
+            code[i].skipped = True 
+            return code
         return code[:i-1] + [code[i].f(code[i-1],code[i+1])] + code[i+2:]
     elif (code[i].arity() == 1):
-        if(len(code) == 1):
-            code[i].skipped = True
+        if(i == len(code) - 1):
+            code[i].skipped = True 
             return code
         return code[:i] + [code[i].f(code[i+1])] + code[i+2:]
     elif (code[i].arity() == 0):
@@ -62,29 +60,35 @@ def parse(code):
     for i,v in enumerate(code):
         if(v.ltype == "nm"):
             code[i] = float(v.val)
-        elif(v.ltype == "ident"):
-            if(v.val in state):
-                code[i] = state[v.val]
+        elif(v.ltype == "cnm"):
+            code[i] = float(v.val[:-2]) * 1j
+        elif(v.ltype == "str"):
+            code[i] = v.val[1:-1]
         elif(v.ltype == "brs"):
             code[i] = parse(lex(v.val))[0]
         elif(v.ltype == "nulop"):
             code[i] = Oper(lambda:execute(lex(v.val))[-1][0],0)
+        elif(v.ltype == "ident" and v.val in state):
+            code[i] = state[v.val]
 
     opers = [i for i,v in enumerate(code) if isinstance(v,Oper) if not v.skipped]
     while opers != []:
         i = max(opers,key=lambda a: code[a].pref)
         code = exop(i,code)
-        opers = [i for i,v in enumerate(code) if isinstance(v,Oper)]
-        for i in code:
-            if isinstance(code[i],Oper) and code[i].skipped:
-                code[i].skipped = False
+        opers = [i for i,v in enumerate(code) if isinstance(v,Oper) if not v.skipped]
+        for j,V in enumerate(code):
+            if isinstance(V,Oper) and V.skipped:
+                code[j].skipped = False
+    
     return code
 
 def execute(code):
     start = i = 0
     res = []
     while i < len(code):
-        while code[i].ltype != "delim": i+=1
+        while code[i].ltype != "delim": 
+            i+=1
+            if(i == len(code)): break
         res.append(parse(code[start:i]))
         start = i = i + 1
     pass
